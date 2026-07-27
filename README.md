@@ -1,15 +1,38 @@
-# Next.js SaaS Starter
+# Full-Stack Developer Self-Assessment — Next.js SaaS Starter
 
-This is a starter template for building a SaaS application using **Next.js** with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.
+This repository is my submission for the Full-Stack Developer Self-Assessment, built on top of [nextjs/saas-starter](https://github.com/nextjs/saas-starter). It demonstrates the full stack end to end: authentication, RBAC, Stripe billing, and a capstone feature shipped through every layer (schema → migration → Server Actions → UI).
 
-**Demo: [https://next-saas-start.vercel.app/](https://next-saas-start.vercel.app/)**
+**Repository**: https://github.com/Srikanth515341/fullstack-saas-assessment
 
-## Features
+## What I added on top of the starter
+
+- **`displayName` field** on `users` — new column, migration, wired through the account update action and the General Settings form (Phase 4)
+- **`/dashboard/notes`** — a new protected page proving the global middleware covers any route under `/dashboard` with no per-page auth code (Phase 4)
+- **`/dashboard/tasks`** — capstone feature: a full todo/task manager (Phase 5)
+  - `tasks` table (`id`, `userId` FK, `title`, `completed`, `dueDate`, `createdAt`) with its own migration
+  - `createTask` / `toggleTask` / `deleteTask` Server Actions, each Zod-validated and scoped to the signed-in user (`WHERE user_id = ?` on every mutation, not just the list query — this is what actually prevents one account from touching another account's tasks)
+  - Add-task form with a pending/loading state (`useActionState`)
+  - Empty state when a user has no tasks
+  - Tasks sort by due date (undated tasks last)
+  - Task events (create/complete/delete) logged to the existing activity log
+- Updated pricing plan feature lists on `/pricing`
+
+## Architecture notes
+
+Written while working through the assessment phases — these hold the actual reasoning, not just a feature list:
+
+- [`docs/phase2-codebase-mapping.md`](docs/phase2-codebase-mapping.md) — folder structure, where everything lives, ER diagram
+- [`docs/phase3-feature-tracing.md`](docs/phase3-feature-tracing.md) — sign-up flow, checkout flow (including the dual sync-callback/async-webhook paths), and the RSC-vs-client-fetch contrast between the activity log and team settings pages
+- [`docs/phase4-break-and-modify.md`](docs/phase4-break-and-modify.md) — the `displayName` migration, an intentionally-broken import and the exact TypeScript error that led to the fix
+- [`docs/phase5-capstone-tasks.md`](docs/phase5-capstone-tasks.md) — the tasks feature, plus the isolation test proving cross-user access is blocked at the query level
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — production deployment checklist
+
+## Features (from the original starter)
 
 - Marketing landing page (`/`) with animated Terminal element
 - Pricing page (`/pricing`) which connects to Stripe Checkout
 - Dashboard pages with CRUD operations on users/teams
-- Basic RBAC with Owner and Member roles
+- Basic RBAC with Owner and Member roles (scoped per-team via `team_members.role`)
 - Subscription management with Stripe Customer Portal
 - Email/password authentication with JWTs stored to cookies
 - Global middleware to protect logged-in routes
@@ -18,17 +41,19 @@ This is a starter template for building a SaaS application using **Next.js** wit
 
 ## Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org/)
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **Language**: TypeScript
 - **Database**: [Postgres](https://www.postgresql.org/)
 - **ORM**: [Drizzle](https://orm.drizzle.team/)
 - **Payments**: [Stripe](https://stripe.com/)
-- **UI Library**: [shadcn/ui](https://ui.shadcn.com/)
+- **UI Library**: [shadcn/ui](https://ui.shadcn.com/) + Tailwind CSS
+- **Deployment**: [Vercel](https://vercel.com/)
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/nextjs/saas-starter
-cd saas-starter
+git clone https://github.com/Srikanth515341/fullstack-saas-assessment.git
+cd fullstack-saas-assessment
 pnpm install
 ```
 
@@ -40,10 +65,14 @@ pnpm install
 stripe login
 ```
 
-Use the included setup script to create your `.env` file:
+Create a `.env` file in the project root (see `.env.example`) with:
 
-```bash
-pnpm db:setup
+```
+POSTGRES_URL=postgresql://<user>:<password>@localhost:5432/<database>
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+BASE_URL=http://localhost:3000
+AUTH_SECRET=<random 32-byte hex string>
 ```
 
 Run the database migrations and seed the database with a default user and team:
@@ -82,38 +111,6 @@ To test Stripe payments, use the following test card details:
 - Expiration: Any future date
 - CVC: Any 3-digit number
 
-## Going to Production
+## Deployment
 
-When you're ready to deploy your SaaS application to production, follow these steps:
-
-### Set up a production Stripe webhook
-
-1. Go to the Stripe Dashboard and create a new webhook for your production environment.
-2. Set the endpoint URL to your production API route (e.g., `https://yourdomain.com/api/stripe/webhook`).
-3. Select the events you want to listen for (e.g., `checkout.session.completed`, `customer.subscription.updated`).
-
-### Deploy to Vercel
-
-1. Push your code to a GitHub repository.
-2. Connect your repository to [Vercel](https://vercel.com/) and deploy it.
-3. Follow the Vercel deployment process, which will guide you through setting up your project.
-
-### Add environment variables
-
-In your Vercel project settings (or during deployment), add all the necessary environment variables. Make sure to update the values for the production environment, including:
-
-1. `BASE_URL`: Set this to your production domain.
-2. `STRIPE_SECRET_KEY`: Use your Stripe secret key for the production environment.
-3. `STRIPE_WEBHOOK_SECRET`: Use the webhook secret from the production webhook you created in step 1.
-4. `POSTGRES_URL`: Set this to your production database URL.
-5. `AUTH_SECRET`: Set this to a random string. `openssl rand -base64 32` will generate one.
-
-## Other Templates
-
-While this template is intentionally minimal and to be used as a learning resource, there are other paid versions in the community which are more full-featured:
-
-- https://achromatic.dev
-- https://shipfa.st
-- https://makerkit.dev
-- https://zerotoshipped.com
-- https://turbostarter.dev
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the full production deployment checklist (Neon Postgres, Vercel environment variables, production Stripe webhook, and post-deploy smoke test).
