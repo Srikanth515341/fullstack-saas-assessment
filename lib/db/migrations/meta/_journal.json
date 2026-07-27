@@ -15,6 +15,13 @@
       "when": 1785186047203,
       "tag": "0001_steady_scream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785186802120,
+      "tag": "0002_lonely_owl",
+      "breakpoints": true
     }
   ]
 }
