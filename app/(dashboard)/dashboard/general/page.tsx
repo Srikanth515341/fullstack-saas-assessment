@@ -15,6 +15,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type ActionState = {
   name?: string;
+  displayName?: string;
   error?: string;
   success?: string;
 };
@@ -22,12 +23,14 @@ type ActionState = {
 type AccountFormProps = {
   state: ActionState;
   nameValue?: string;
+  displayNameValue?: string;
   emailValue?: string;
 };
 
 function AccountForm({
   state,
   nameValue = '',
+  displayNameValue = '',
   emailValue = ''
 }: AccountFormProps) {
   return (
@@ -42,6 +45,17 @@ function AccountForm({
           placeholder="Enter your name"
           defaultValue={state.name || nameValue}
           required
+        />
+      </div>
+      <div>
+        <Label htmlFor="displayName" className="mb-2">
+          Display Name
+        </Label>
+        <Input
+          id="displayName"
+          name="displayName"
+          placeholder="How you'd like to be shown"
+          defaultValue={state.displayName || displayNameValue}
         />
       </div>
       <div>
@@ -67,6 +81,7 @@ function AccountFormWithData({ state }: { state: ActionState }) {
     <AccountForm
       state={state}
       nameValue={user?.name ?? ''}
+      displayNameValue={user?.displayName ?? ''}
       emailValue={user?.email ?? ''}
     />
   );

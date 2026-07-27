@@ -29,6 +29,7 @@ export default async function PricingPage() {
           features={[
             'Unlimited Usage',
             'Unlimited Workspace Members',
+            'Task Management',
             'Email Support',
           ]}
           priceId={basePrice?.id}
@@ -41,6 +42,7 @@ export default async function PricingPage() {
           features={[
             'Everything in Base, and:',
             'Early Access to New Features',
+            'Advanced Analytics',
             '24/7 Support + Slack Access',
           ]}
           priceId={plusPrice?.id}
