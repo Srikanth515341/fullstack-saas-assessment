@@ -39,3 +39,7 @@ next-env.d.ts
 # Docker
 postgres_data/
 .env*.local
+
+# local-disk avatar upload stub (see lib/storage/avatar.ts)
+/public/avatars/*
+!/public/avatars/.gitkeep

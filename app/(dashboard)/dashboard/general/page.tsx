@@ -12,6 +12,7 @@ import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import { Suspense } from 'react';
 import { useActionToast } from '@/components/use-action-toast';
+import { AvatarUploadForm } from './avatar-upload-form';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -123,6 +124,9 @@ export default function GeneralPage() {
           <CardTitle>Account Information</CardTitle>
         </CardHeader>
         <CardContent>
+          <Suspense fallback={<div className="h-16 mb-6" />}>
+            <AvatarUploadForm />
+          </Suspense>
           <form className="space-y-4" action={formAction}>
             <Suspense fallback={<AccountForm state={state} />}>
               <AccountFormWithData state={state} />

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Users, Settings, Shield, Activity, Menu, StickyNote, ListTodo } from 'lucide-react';
+import { VerifyEmailBanner } from './verify-email-banner';
 
 export default function DashboardLayout({
   children
@@ -25,6 +26,9 @@ export default function DashboardLayout({
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-68px)] max-w-7xl mx-auto w-full">
+      <Suspense fallback={null}>
+        <VerifyEmailBanner />
+      </Suspense>
       {/* Mobile header */}
       <div className="lg:hidden flex items-center justify-between bg-white border-b border-gray-200 p-4">
         <div className="flex items-center">
