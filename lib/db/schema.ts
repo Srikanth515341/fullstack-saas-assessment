@@ -13,6 +13,7 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }),
   displayName: varchar('display_name', { length: 100 }),
+  bio: varchar('bio', { length: 280 }),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('member'),
@@ -70,11 +71,21 @@ export const invitations = pgTable('invitations', {
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 });
 
+export const taskCategories = pgTable('task_categories', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
+  name: varchar('name', { length: 50 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const tasks = pgTable('tasks', {
   id: serial('id').primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => users.id),
+  categoryId: integer('category_id').references(() => taskCategories.id),
   title: varchar('title', { length: 500 }).notNull(),
   completed: boolean('completed').notNull().default(false),
   dueDate: timestamp('due_date'),
@@ -86,6 +97,14 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
     fields: [tasks.userId],
     references: [users.id],
   }),
+  category: one(taskCategories, {
+    fields: [tasks.categoryId],
+    references: [taskCategories.id],
+  }),
+}));
+
+export const taskCategoriesRelations = relations(taskCategories, ({ many }) => ({
+  tasks: many(tasks),
 }));
 
 export const teamsRelations = relations(teams, ({ many }) => ({
@@ -145,6 +164,8 @@ export type Invitation = typeof invitations.$inferSelect;
 export type NewInvitation = typeof invitations.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
+export type TaskCategory = typeof taskCategories.$inferSelect;
+export type NewTaskCategory = typeof taskCategories.$inferInsert;
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {
     user: Pick<User, 'id' | 'name' | 'email'>;

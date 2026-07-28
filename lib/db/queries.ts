@@ -1,6 +1,13 @@
-import { desc, asc, and, eq, isNull } from 'drizzle-orm';
+import { desc, asc, and, eq, isNull, ilike, count } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, teamMembers, teams, users, tasks } from './schema';
+import {
+  activityLogs,
+  teamMembers,
+  teams,
+  users,
+  tasks,
+  taskCategories
+} from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 
@@ -78,28 +85,79 @@ export async function getUserWithTeam(userId: number) {
   return result[0];
 }
 
-export async function getActivityLogs() {
+const ACTIVITY_LOG_PAGE_SIZE = 10;
+
+export async function getActivityLogs(page: number = 1) {
   const user = await getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
 
-  return await db
-    .select({
-      id: activityLogs.id,
-      action: activityLogs.action,
-      timestamp: activityLogs.timestamp,
-      ipAddress: activityLogs.ipAddress,
-      userName: users.name
-    })
-    .from(activityLogs)
-    .leftJoin(users, eq(activityLogs.userId, users.id))
-    .where(eq(activityLogs.userId, user.id))
-    .orderBy(desc(activityLogs.timestamp))
-    .limit(10);
+  const safePage = Math.max(1, page);
+  const offset = (safePage - 1) * ACTIVITY_LOG_PAGE_SIZE;
+
+  const [logs, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        timestamp: activityLogs.timestamp,
+        ipAddress: activityLogs.ipAddress,
+        userName: users.name
+      })
+      .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
+      .where(eq(activityLogs.userId, user.id))
+      .orderBy(desc(activityLogs.timestamp))
+      .limit(ACTIVITY_LOG_PAGE_SIZE)
+      .offset(offset),
+    db
+      .select({ total: count() })
+      .from(activityLogs)
+      .where(eq(activityLogs.userId, user.id))
+  ]);
+
+  return {
+    logs,
+    page: safePage,
+    totalPages: Math.max(1, Math.ceil(total / ACTIVITY_LOG_PAGE_SIZE))
+  };
 }
 
-export async function getTasksForUser() {
+export type TaskFilter = 'all' | 'active' | 'completed';
+
+export async function getTasksForUser(options?: {
+  search?: string;
+  filter?: TaskFilter;
+  categoryId?: number;
+}) {
+  const user = await getUser();
+  if (!user) {
+    return [];
+  }
+
+  const conditions = [eq(tasks.userId, user.id)];
+
+  if (options?.search) {
+    conditions.push(ilike(tasks.title, `%${options.search}%`));
+  }
+  if (options?.filter === 'active') {
+    conditions.push(eq(tasks.completed, false));
+  } else if (options?.filter === 'completed') {
+    conditions.push(eq(tasks.completed, true));
+  }
+  if (options?.categoryId) {
+    conditions.push(eq(tasks.categoryId, options.categoryId));
+  }
+
+  return db
+    .select()
+    .from(tasks)
+    .where(and(...conditions))
+    .orderBy(asc(tasks.dueDate), desc(tasks.createdAt));
+}
+
+export async function getTaskCategoriesForUser() {
   const user = await getUser();
   if (!user) {
     return [];
@@ -107,9 +165,9 @@ export async function getTasksForUser() {
 
   return db
     .select()
-    .from(tasks)
-    .where(eq(tasks.userId, user.id))
-    .orderBy(asc(tasks.dueDate), desc(tasks.createdAt));
+    .from(taskCategories)
+    .where(eq(taskCategories.userId, user.id))
+    .orderBy(asc(taskCategories.name));
 }
 
 export async function getTeamForUser() {

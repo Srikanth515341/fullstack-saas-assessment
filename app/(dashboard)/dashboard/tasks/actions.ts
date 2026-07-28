@@ -4,25 +4,33 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db/drizzle';
-import { tasks, ActivityType, type NewTask } from '@/lib/db/schema';
+import {
+  tasks,
+  taskCategories,
+  ActivityType,
+  type NewTask,
+  type NewTaskCategory
+} from '@/lib/db/schema';
 import { getUser, getUserWithTeam } from '@/lib/db/queries';
 import { validatedActionWithUser } from '@/lib/auth/middleware';
 import { logActivity } from '@/app/(login)/actions';
 
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
-  dueDate: z.string().optional()
+  dueDate: z.string().optional(),
+  categoryId: z.coerce.number().optional()
 });
 
 export const createTask = validatedActionWithUser(
   createTaskSchema,
   async (data, _, user) => {
-    const { title, dueDate } = data;
+    const { title, dueDate, categoryId } = data;
 
     const newTask: NewTask = {
       userId: user.id,
       title,
-      dueDate: dueDate ? new Date(dueDate) : null
+      dueDate: dueDate ? new Date(dueDate) : null,
+      categoryId: categoryId || null
     };
 
     await db.insert(tasks).values(newTask);
@@ -32,6 +40,27 @@ export const createTask = validatedActionWithUser(
 
     revalidatePath('/dashboard/tasks');
     return { success: 'Task added.' };
+  }
+);
+
+const createCategorySchema = z.object({
+  name: z.string().min(1, 'Category name is required').max(50)
+});
+
+export const createCategory = validatedActionWithUser(
+  createCategorySchema,
+  async (data, _, user) => {
+    const { name } = data;
+
+    const newCategory: NewTaskCategory = {
+      userId: user.id,
+      name
+    };
+
+    await db.insert(taskCategories).values(newCategory);
+
+    revalidatePath('/dashboard/tasks');
+    return { success: 'Category added.' };
   }
 );
 

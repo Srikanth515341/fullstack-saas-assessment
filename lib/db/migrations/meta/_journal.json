@@ -22,6 +22,13 @@
       "when": 1785186802120,
       "tag": "0002_lonely_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785226670025,
+      "tag": "0003_odd_black_bolt",
+      "breakpoints": true
     }
   ]
 }

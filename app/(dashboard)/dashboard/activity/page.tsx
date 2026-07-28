@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Settings,
@@ -80,8 +81,14 @@ function formatAction(action: ActivityType): string {
   }
 }
 
-export default async function ActivityPage() {
-  const logs = await getActivityLogs();
+export default async function ActivityPage({
+  searchParams
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const requestedPage = Number(params.page) || 1;
+  const { logs, page, totalPages } = await getActivityLogs(requestedPage);
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -129,6 +136,36 @@ export default async function ActivityPage() {
                 When you perform actions like signing in or updating your
                 account, they'll appear here.
               </p>
+            </div>
+          )}
+
+          {logs.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+              <Link
+                href={`/dashboard/activity?page=${page - 1}`}
+                aria-disabled={page <= 1}
+                className={`text-sm font-medium ${
+                  page <= 1
+                    ? 'pointer-events-none text-gray-300'
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                ← Previous
+              </Link>
+              <span className="text-xs text-gray-500">
+                Page {page} of {totalPages}
+              </span>
+              <Link
+                href={`/dashboard/activity?page=${page + 1}`}
+                aria-disabled={page >= totalPages}
+                className={`text-sm font-medium ${
+                  page >= totalPages
+                    ? 'pointer-events-none text-gray-300'
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                Next →
+              </Link>
             </div>
           )}
         </CardContent>
