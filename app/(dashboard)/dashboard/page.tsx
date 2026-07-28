@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle } from 'lucide-react';
+import { useActionToast } from '@/components/use-action-toast';
 
 type ActionState = {
   error?: string;
@@ -99,6 +100,7 @@ function TeamMembers() {
     ActionState,
     FormData
   >(removeTeamMember, {});
+  useActionToast(removeState);
 
   const getUserDisplayName = (user: Pick<User, 'id' | 'name' | 'email'>) => {
     return user.name || user.email || 'Unknown User';
@@ -194,6 +196,7 @@ function InviteTeamMember() {
     ActionState,
     FormData
   >(inviteTeamMember, {});
+  useActionToast(inviteState);
 
   return (
     <Card>

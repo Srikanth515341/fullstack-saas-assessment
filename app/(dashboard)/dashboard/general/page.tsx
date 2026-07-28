@@ -5,17 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { updateAccount } from '@/app/(login)/actions';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
 import { Suspense } from 'react';
+import { useActionToast } from '@/components/use-action-toast';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type ActionState = {
   name?: string;
   displayName?: string;
+  bio?: string;
   error?: string;
   success?: string;
 };
@@ -24,6 +27,7 @@ type AccountFormProps = {
   state: ActionState;
   nameValue?: string;
   displayNameValue?: string;
+  bioValue?: string;
   emailValue?: string;
 };
 
@@ -31,6 +35,7 @@ function AccountForm({
   state,
   nameValue = '',
   displayNameValue = '',
+  bioValue = '',
   emailValue = ''
 }: AccountFormProps) {
   return (
@@ -59,6 +64,18 @@ function AccountForm({
         />
       </div>
       <div>
+        <Label htmlFor="bio" className="mb-2">
+          Bio
+        </Label>
+        <Textarea
+          id="bio"
+          name="bio"
+          placeholder="A short bio about yourself"
+          maxLength={280}
+          defaultValue={state.bio || bioValue}
+        />
+      </div>
+      <div>
         <Label htmlFor="email" className="mb-2">
           Email
         </Label>
@@ -82,6 +99,7 @@ function AccountFormWithData({ state }: { state: ActionState }) {
       state={state}
       nameValue={user?.name ?? ''}
       displayNameValue={user?.displayName ?? ''}
+      bioValue={user?.bio ?? ''}
       emailValue={user?.email ?? ''}
     />
   );
@@ -92,6 +110,7 @@ export default function GeneralPage() {
     updateAccount,
     {}
   );
+  useActionToast(state);
 
   return (
     <section className="flex-1 p-4 lg:p-8">

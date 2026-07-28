@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
+import { ToastProvider } from '@/components/toast-provider';
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
@@ -15,6 +16,13 @@ export const viewport: Viewport = {
 
 const manrope = Manrope({ subsets: ['latin'] });
 
+// Applies the persisted theme cookie before first paint, entirely client-side.
+// A server-side `await cookies()` here would work too, but it forces this
+// layout (and therefore every route under it) out of static/PPR rendering,
+// since it's a direct blocking dynamic read rather than the deferred,
+// Suspense-scoped pattern used below for getUser()/getTeamForUser().
+const themeInitScript = `(function(){try{var m=document.cookie.match(/(?:^|; )theme=([^;]+)/);if(m&&m[1]==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`;
+
 export default function RootLayout({
   children
 }: {
@@ -25,6 +33,9 @@ export default function RootLayout({
       lang="en"
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-[100dvh] bg-gray-50">
         <SWRConfig
           value={{
@@ -36,7 +47,7 @@ export default function RootLayout({
             }
           }}
         >
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </SWRConfig>
       </body>
     </html>

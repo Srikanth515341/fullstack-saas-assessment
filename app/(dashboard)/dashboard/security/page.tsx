@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Lock, Trash2, Loader2 } from 'lucide-react';
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { updatePassword, deleteAccount } from '@/app/(login)/actions';
+import { useActionToast } from '@/components/use-action-toast';
 
 type PasswordState = {
   currentPassword?: string;
@@ -32,6 +33,12 @@ export default function SecurityPage() {
     DeleteState,
     FormData
   >(deleteAccount, {});
+
+  useActionToast(passwordState);
+  useActionToast(deleteState);
+
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const isDeleteConfirmed = deleteConfirmText === 'DELETE';
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -138,6 +145,19 @@ export default function SecurityPage() {
                 defaultValue={deleteState.password}
               />
             </div>
+            <div>
+              <Label htmlFor="delete-confirm-text" className="mb-2">
+                Type <span className="font-mono font-semibold">DELETE</span> to confirm
+              </Label>
+              <Input
+                id="delete-confirm-text"
+                name="deleteConfirmText"
+                autoComplete="off"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                required
+              />
+            </div>
             {deleteState.error && (
               <p className="text-red-500 text-sm">{deleteState.error}</p>
             )}
@@ -145,7 +165,7 @@ export default function SecurityPage() {
               type="submit"
               variant="destructive"
               className="bg-red-600 hover:bg-red-700"
-              disabled={isDeletePending}
+              disabled={isDeletePending || !isDeleteConfirmed}
             >
               {isDeletePending ? (
                 <>
