@@ -29,6 +29,13 @@
       "when": 1785226670025,
       "tag": "0003_odd_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785229770627,
+      "tag": "0004_simple_dark_beast",
+      "breakpoints": true
     }
   ]
 }

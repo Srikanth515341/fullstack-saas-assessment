@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   User,
@@ -17,14 +17,20 @@ import {
   invitations
 } from '@/lib/db/schema';
 import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
+import { createVerificationToken, consumeVerificationToken } from '@/lib/auth/tokens';
+import { sendEmail } from '@/lib/email/send';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { storeAvatarFile } from '@/lib/storage/avatar';
+import { revalidatePath } from 'next/cache';
+import { getUser, getUserWithTeam, createNotification } from '@/lib/db/queries';
 import {
   validatedAction,
   validatedActionWithUser
 } from '@/lib/auth/middleware';
+
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export async function logActivity(
   teamId: number | null | undefined,
@@ -169,6 +175,10 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
         .where(eq(invitations.id, invitation.id));
 
       await logActivity(teamId, createdUser.id, ActivityType.ACCEPT_INVITATION);
+      await createNotification(
+        invitation.invitedBy,
+        `${email} accepted your invitation to join the team.`
+      );
 
       [createdTeam] = await db
         .select()
@@ -211,6 +221,18 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     logActivity(teamId, createdUser.id, ActivityType.SIGN_UP),
     setSession(createdUser)
   ]);
+
+  const verificationToken = await createVerificationToken(
+    createdUser.id,
+    'email_verification',
+    24 * ONE_HOUR_MS
+  );
+  await sendEmail({
+    to: createdUser.email,
+    subject: 'Verify your email',
+    html: `<p>Welcome! Click the link below to verify your email address.</p>
+           <p><a href="${process.env.BASE_URL}/api/verify-email?token=${verificationToken}">Verify email</a></p>`
+  });
 
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
@@ -338,6 +360,33 @@ export const deleteAccount = validatedActionWithUser(
   }
 );
 
+export async function uploadAvatar(formData: FormData) {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User is not authenticated');
+  }
+
+  const file = formData.get('avatar');
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: 'Please choose an image file.' };
+  }
+  if (!file.type.startsWith('image/')) {
+    return { error: 'File must be an image.' };
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    return { error: 'Image must be smaller than 2MB.' };
+  }
+
+  const avatarUrl = await storeAvatarFile(user.id, file);
+  await db.update(users).set({ avatarUrl }).where(eq(users.id, user.id));
+
+  const userWithTeam = await getUserWithTeam(user.id);
+  await logActivity(userWithTeam?.teamId, user.id, ActivityType.UPDATE_ACCOUNT);
+
+  revalidatePath('/dashboard/general');
+  return { success: 'Avatar updated.' };
+}
+
 const updateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   displayName: z.string().max(100).optional(),
@@ -377,6 +426,17 @@ export const removeTeamMember = validatedActionWithUser(
       return { error: 'User is not part of a team' };
     }
 
+    const [removedMember] = await db
+      .select()
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.id, memberId),
+          eq(teamMembers.teamId, userWithTeam.teamId)
+        )
+      )
+      .limit(1);
+
     await db
       .delete(teamMembers)
       .where(
@@ -391,6 +451,13 @@ export const removeTeamMember = validatedActionWithUser(
       user.id,
       ActivityType.REMOVE_TEAM_MEMBER
     );
+
+    if (removedMember) {
+      await createNotification(
+        removedMember.userId,
+        'You were removed from a team.'
+      );
+    }
 
     return { success: 'Team member removed successfully' };
   }
@@ -442,13 +509,16 @@ export const inviteTeamMember = validatedActionWithUser(
     }
 
     // Create a new invitation
-    await db.insert(invitations).values({
-      teamId: userWithTeam.teamId,
-      email,
-      role,
-      invitedBy: user.id,
-      status: 'pending'
-    });
+    const [newInvitation] = await db
+      .insert(invitations)
+      .values({
+        teamId: userWithTeam.teamId,
+        email,
+        role,
+        invitedBy: user.id,
+        status: 'pending'
+      })
+      .returning();
 
     await logActivity(
       userWithTeam.teamId,
@@ -456,9 +526,124 @@ export const inviteTeamMember = validatedActionWithUser(
       ActivityType.INVITE_TEAM_MEMBER
     );
 
-    // TODO: Send invitation email and include ?inviteId={id} to sign-up URL
-    // await sendInvitationEmail(email, userWithTeam.team.name, role)
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, userWithTeam.teamId))
+      .limit(1);
+
+    const invitedUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (invitedUser.length > 0) {
+      // Already has an account — notify in-app instead of just by email.
+      await createNotification(
+        invitedUser[0].id,
+        `You've been invited to join ${team?.name ?? 'a team'} as ${role}.`
+      );
+    }
+
+    await sendEmail({
+      to: email,
+      subject: `You're invited to join ${team?.name ?? 'a team'}`,
+      html: `<p>${user.email} invited you to join <strong>${team?.name ?? 'their team'}</strong> as ${role}.</p>
+             <p><a href="${process.env.BASE_URL}/sign-up?inviteId=${newInvitation.id}">Accept invitation</a></p>`
+    });
 
     return { success: 'Invitation sent successfully' };
   }
 );
+
+export async function resendVerificationEmail() {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User is not authenticated');
+  }
+  if (user.emailVerifiedAt) {
+    return;
+  }
+
+  const verificationToken = await createVerificationToken(
+    user.id,
+    'email_verification',
+    24 * ONE_HOUR_MS
+  );
+  await sendEmail({
+    to: user.email,
+    subject: 'Verify your email',
+    html: `<p>Click the link below to verify your email address.</p>
+           <p><a href="${process.env.BASE_URL}/api/verify-email?token=${verificationToken}">Verify email</a></p>`
+  });
+}
+
+const requestPasswordResetSchema = z.object({
+  email: z.string().email()
+});
+
+export const requestPasswordReset = validatedAction(
+  requestPasswordResetSchema,
+  async (data) => {
+    const { email } = data;
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .limit(1);
+
+    // Always return the same message whether or not the email exists —
+    // otherwise this endpoint becomes a way to enumerate registered emails.
+    const genericSuccess = {
+      success: 'If an account exists for that email, a reset link has been sent.'
+    };
+
+    if (!user) {
+      return genericSuccess;
+    }
+
+    const token = await createVerificationToken(user.id, 'password_reset', ONE_HOUR_MS);
+
+    const userWithTeam = await getUserWithTeam(user.id);
+    await logActivity(userWithTeam?.teamId, user.id, ActivityType.REQUEST_PASSWORD_RESET);
+
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your password',
+      html: `<p>Click the link below to reset your password. This link expires in 1 hour.</p>
+             <p><a href="${process.env.BASE_URL}/reset-password?token=${token}">Reset password</a></p>`
+    });
+
+    return genericSuccess;
+  }
+);
+
+const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: z.string().min(8).max(100),
+    confirmPassword: z.string().min(8).max(100)
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword']
+  });
+
+export const resetPassword = validatedAction(resetPasswordSchema, async (data) => {
+  const { token, password } = data;
+
+  const userId = await consumeVerificationToken(token, 'password_reset');
+  if (!userId) {
+    return { error: 'This reset link is invalid or has expired.' };
+  }
+
+  const passwordHash = await hashPassword(password);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+
+  const userWithTeam = await getUserWithTeam(userId);
+  await logActivity(userWithTeam?.teamId, userId, ActivityType.RESET_PASSWORD);
+
+  return { success: 'Password reset successfully. You can now sign in.' };
+});

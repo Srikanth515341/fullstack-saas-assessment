@@ -103,7 +103,59 @@ export async function toggleTask(formData: FormData) {
   revalidatePath('/dashboard/tasks');
 }
 
+// Soft delete — moves the task to the trash instead of removing it, so it
+// can be restored. `getTasksForUser()` already filters out anything with
+// deletedAt set.
 export async function deleteTask(formData: FormData) {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User is not authenticated');
+  }
+
+  const result = taskIdSchema.safeParse(Object.fromEntries(formData));
+  if (!result.success) {
+    return;
+  }
+  const { taskId } = result.data;
+
+  await db
+    .update(tasks)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, user.id)));
+
+  const userWithTeam = await getUserWithTeam(user.id);
+  await logActivity(userWithTeam?.teamId, user.id, ActivityType.DELETE_TASK);
+
+  revalidatePath('/dashboard/tasks');
+  revalidatePath('/dashboard/tasks/trash');
+}
+
+export async function restoreTask(formData: FormData) {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User is not authenticated');
+  }
+
+  const result = taskIdSchema.safeParse(Object.fromEntries(formData));
+  if (!result.success) {
+    return;
+  }
+  const { taskId } = result.data;
+
+  await db
+    .update(tasks)
+    .set({ deletedAt: null })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, user.id)));
+
+  const userWithTeam = await getUserWithTeam(user.id);
+  await logActivity(userWithTeam?.teamId, user.id, ActivityType.RESTORE_TASK);
+
+  revalidatePath('/dashboard/tasks');
+  revalidatePath('/dashboard/tasks/trash');
+}
+
+// Hard delete from the trash — this one is actually unrecoverable.
+export async function permanentlyDeleteTask(formData: FormData) {
   const user = await getUser();
   if (!user) {
     throw new Error('User is not authenticated');
@@ -119,8 +171,5 @@ export async function deleteTask(formData: FormData) {
     .delete(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, user.id)));
 
-  const userWithTeam = await getUserWithTeam(user.id);
-  await logActivity(userWithTeam?.teamId, user.id, ActivityType.DELETE_TASK);
-
-  revalidatePath('/dashboard/tasks');
+  revalidatePath('/dashboard/tasks/trash');
 }

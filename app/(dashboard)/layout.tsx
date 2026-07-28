@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { NotificationBell } from './notification-bell';
 import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
 import { User } from '@/lib/db/schema';
@@ -50,7 +51,7 @@ function UserMenu() {
     <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
       <DropdownMenuTrigger>
         <Avatar className="cursor-pointer size-9">
-          <AvatarImage alt={user.name || ''} />
+          <AvatarImage src={user.avatarUrl || undefined} alt={user.name || ''} />
           <AvatarFallback>
             {user.email
               .split(' ')
@@ -89,6 +90,9 @@ function Header() {
         </Link>
         <div className="flex items-center space-x-4">
           <ThemeToggle />
+          <Suspense fallback={<div className="h-9 w-9" />}>
+            <NotificationBell />
+          </Suspense>
           <Suspense fallback={<div className="h-9" />}>
             <UserMenu />
           </Suspense>

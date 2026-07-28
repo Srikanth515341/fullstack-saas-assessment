@@ -11,7 +11,15 @@ import { signIn, signUp } from './actions';
 import { ActionState } from '@/lib/auth/middleware';
 import { useActionToast } from '@/components/use-action-toast';
 
-export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
+export function Login({
+  mode = 'signin',
+  googleEnabled = false,
+  githubEnabled = false
+}: {
+  mode?: 'signin' | 'signup';
+  googleEnabled?: boolean;
+  githubEnabled?: boolean;
+}) {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
   const priceId = searchParams.get('priceId');
@@ -85,6 +93,16 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 placeholder="Enter your password"
               />
             </div>
+            {mode === 'signin' && (
+              <div className="mt-2 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </div>
 
           {state?.error && (
@@ -110,6 +128,39 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
             </Button>
           </div>
         </form>
+
+        {(googleEnabled || githubEnabled) && (
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-gray-50 text-gray-500">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {googleEnabled && (
+                <a
+                  href="/api/auth/google"
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Google
+                </a>
+              )}
+              {githubEnabled && (
+                <a
+                  href="/api/auth/github"
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  GitHub
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6">
           <div className="relative">

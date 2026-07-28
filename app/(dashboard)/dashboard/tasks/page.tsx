@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, Circle, Trash2, ListTodo } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, ListTodo, Download, Trash } from 'lucide-react';
 import { getTasksForUser, getTaskCategoriesForUser, type TaskFilter } from '@/lib/db/queries';
 import { AddTaskForm } from './add-task-form';
 import { TaskFilters } from './task-filters';
@@ -41,8 +42,24 @@ export default async function TasksPage({
       </h1>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>My Tasks</CardTitle>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/api/export/tasks"
+              className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-900"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Link>
+            <Link
+              href="/dashboard/tasks/trash"
+              className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-900"
+            >
+              <Trash className="h-3.5 w-3.5" />
+              Trash
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           <AddTaskForm categories={categories} />

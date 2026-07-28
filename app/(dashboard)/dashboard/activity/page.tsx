@@ -13,6 +13,12 @@ import {
   ListTodo,
   CheckSquare,
   Trash2,
+  RotateCcw,
+  KeyRound,
+  ShieldCheck,
+  MailCheck,
+  LogIn,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
@@ -32,6 +38,11 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.CREATE_TASK]: ListTodo,
   [ActivityType.COMPLETE_TASK]: CheckSquare,
   [ActivityType.DELETE_TASK]: Trash2,
+  [ActivityType.RESTORE_TASK]: RotateCcw,
+  [ActivityType.REQUEST_PASSWORD_RESET]: KeyRound,
+  [ActivityType.RESET_PASSWORD]: ShieldCheck,
+  [ActivityType.VERIFY_EMAIL]: MailCheck,
+  [ActivityType.OAUTH_LOGIN]: LogIn,
 };
 
 function getRelativeTime(date: Date) {
@@ -76,6 +87,16 @@ function formatAction(action: ActivityType): string {
       return 'You updated a task';
     case ActivityType.DELETE_TASK:
       return 'You deleted a task';
+    case ActivityType.RESTORE_TASK:
+      return 'You restored a task';
+    case ActivityType.REQUEST_PASSWORD_RESET:
+      return 'You requested a password reset';
+    case ActivityType.RESET_PASSWORD:
+      return 'You reset your password';
+    case ActivityType.VERIFY_EMAIL:
+      return 'You verified your email';
+    case ActivityType.OAUTH_LOGIN:
+      return 'You signed in with an OAuth provider';
     default:
       return 'Unknown action occurred';
   }
@@ -96,8 +117,15 @@ export default async function ActivityPage({
         Activity Log
       </h1>
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Activity</CardTitle>
+          <Link
+            href="/api/export/activity"
+            className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-900"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </Link>
         </CardHeader>
         <CardContent>
           {logs.length > 0 ? (

@@ -1,4 +1,4 @@
-import { desc, asc, and, eq, isNull, ilike, count } from 'drizzle-orm';
+import { desc, asc, and, eq, isNull, isNotNull, ilike, count } from 'drizzle-orm';
 import { db } from './drizzle';
 import {
   activityLogs,
@@ -6,7 +6,8 @@ import {
   teams,
   users,
   tasks,
-  taskCategories
+  taskCategories,
+  notifications
 } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
@@ -124,6 +125,24 @@ export async function getActivityLogs(page: number = 1) {
   };
 }
 
+export async function getAllActivityLogsForUser() {
+  const user = await getUser();
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  return db
+    .select({
+      id: activityLogs.id,
+      action: activityLogs.action,
+      timestamp: activityLogs.timestamp,
+      ipAddress: activityLogs.ipAddress
+    })
+    .from(activityLogs)
+    .where(eq(activityLogs.userId, user.id))
+    .orderBy(desc(activityLogs.timestamp));
+}
+
 export type TaskFilter = 'all' | 'active' | 'completed';
 
 export async function getTasksForUser(options?: {
@@ -136,7 +155,7 @@ export async function getTasksForUser(options?: {
     return [];
   }
 
-  const conditions = [eq(tasks.userId, user.id)];
+  const conditions = [eq(tasks.userId, user.id), isNull(tasks.deletedAt)];
 
   if (options?.search) {
     conditions.push(ilike(tasks.title, `%${options.search}%`));
@@ -157,6 +176,19 @@ export async function getTasksForUser(options?: {
     .orderBy(asc(tasks.dueDate), desc(tasks.createdAt));
 }
 
+export async function getDeletedTasksForUser() {
+  const user = await getUser();
+  if (!user) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.userId, user.id), isNotNull(tasks.deletedAt)))
+    .orderBy(desc(tasks.deletedAt));
+}
+
 export async function getTaskCategoriesForUser() {
   const user = await getUser();
   if (!user) {
@@ -168,6 +200,38 @@ export async function getTaskCategoriesForUser() {
     .from(taskCategories)
     .where(eq(taskCategories.userId, user.id))
     .orderBy(asc(taskCategories.name));
+}
+
+export async function createNotification(userId: number, message: string) {
+  await db.insert(notifications).values({ userId, message });
+}
+
+export async function getNotificationsForUser() {
+  const user = await getUser();
+  if (!user) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, user.id))
+    .orderBy(desc(notifications.createdAt))
+    .limit(20);
+}
+
+export async function getUnreadNotificationCount() {
+  const user = await getUser();
+  if (!user) {
+    return 0;
+  }
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, user.id), eq(notifications.read, false)));
+
+  return total;
 }
 
 export async function getTeamForUser() {
@@ -187,7 +251,8 @@ export async function getTeamForUser() {
                 columns: {
                   id: true,
                   name: true,
-                  email: true
+                  email: true,
+                  avatarUrl: true
                 }
               }
             }
