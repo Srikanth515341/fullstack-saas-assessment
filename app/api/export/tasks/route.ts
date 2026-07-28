@@ -13,6 +13,8 @@ export async function GET() {
     tasks.map((task) => ({
       id: task.id,
       title: task.title,
+      description: task.description ?? '',
+      priority: task.priority ?? '',
       completed: task.completed,
       dueDate: task.dueDate?.toISOString() ?? '',
       createdAt: task.createdAt.toISOString()

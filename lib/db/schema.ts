@@ -19,6 +19,11 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 20 }).notNull().default('member'),
   avatarUrl: text('avatar_url'),
   emailVerifiedAt: timestamp('email_verified_at'),
+  // Platform-level admin flag — deliberately a separate field from `role`
+  // (which is a legacy, loosely-used field) and from `team_members.role`
+  // (which is team-scoped). Being a platform admin has nothing to do with
+  // owning or belonging to any particular team.
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
@@ -89,6 +94,11 @@ export const tasks = pgTable('tasks', {
     .references(() => users.id),
   categoryId: integer('category_id').references(() => taskCategories.id),
   title: varchar('title', { length: 500 }).notNull(),
+  // Both added for AI task suggestions (#24) — a suggestion needs somewhere
+  // to put its extra fields to actually be useful once accepted, not just
+  // a title.
+  description: text('description'),
+  priority: varchar('priority', { length: 10 }),
   completed: boolean('completed').notNull().default(false),
   dueDate: timestamp('due_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -117,6 +127,39 @@ export const oauthAccounts = pgTable('oauth_accounts', {
   provider: varchar('provider', { length: 20 }).notNull(),
   providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const apiKeys = pgTable('api_keys', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
+  name: varchar('name', { length: 100 }).notNull(),
+  // Only the hash is stored — same reasoning as passwords and verification
+  // tokens. `keyPrefix` is stored in the clear purely so the UI can show
+  // "sk_live_ab12...9f" without ever having the full key to display again.
+  keyHash: varchar('key_hash', { length: 64 }).notNull().unique(),
+  keyPrefix: varchar('key_prefix', { length: 16 }).notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  revokedAt: timestamp('revoked_at'),
+});
+
+// Local usage ledger for metered billing (#22) — this is the source of
+// truth for "how much has this team used," independent of whether Stripe
+// reporting succeeds. `reportedToStripeAt` is set only once a meter event
+// for this row has actually been accepted by Stripe; a null value means
+// either Stripe reporting hasn't been attempted (team not on a metered
+// plan) or it failed and can be retried.
+export const meteredUsage = pgTable('metered_usage', {
+  id: serial('id').primaryKey(),
+  teamId: integer('team_id')
+    .notNull()
+    .references(() => teams.id),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  quantity: integer('quantity').notNull().default(1),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  reportedToStripeAt: timestamp('reported_to_stripe_at'),
 });
 
 export const notifications = pgTable('notifications', {
@@ -178,6 +221,13 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
   }),
 }));
 
+export const meteredUsageRelations = relations(meteredUsage, ({ one }) => ({
+  team: one(teams, {
+    fields: [meteredUsage.teamId],
+    references: [teams.id],
+  }),
+}));
+
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   team: one(teams, {
     fields: [activityLogs.teamId],
@@ -209,6 +259,10 @@ export type OAuthAccount = typeof oauthAccounts.$inferSelect;
 export type NewOAuthAccount = typeof oauthAccounts.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
+export type MeteredUsage = typeof meteredUsage.$inferSelect;
+export type NewMeteredUsage = typeof meteredUsage.$inferInsert;
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {
     user: Pick<User, 'id' | 'name' | 'email' | 'avatarUrl'>;
@@ -234,4 +288,13 @@ export enum ActivityType {
   RESET_PASSWORD = 'RESET_PASSWORD',
   VERIFY_EMAIL = 'VERIFY_EMAIL',
   OAUTH_LOGIN = 'OAUTH_LOGIN',
+  CREATE_API_KEY = 'CREATE_API_KEY',
+  REVOKE_API_KEY = 'REVOKE_API_KEY',
+  INVOICE_PAID = 'INVOICE_PAID',
 }
+
+// Team-scoped roles (team_members.role) — ordered from most to least
+// privileged. Kept as plain strings at the DB level (already varchar(50))
+// so adding a tier never needs a migration; the ordering/permission mapping
+// lives in lib/auth/permissions.ts.
+export type TeamRole = 'owner' | 'admin' | 'member' | 'viewer';

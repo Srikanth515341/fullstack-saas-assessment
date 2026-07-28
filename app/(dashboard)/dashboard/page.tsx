@@ -20,6 +20,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { useActionToast } from '@/components/use-action-toast';
+import { hasPermission, Permission, ALL_TEAM_ROLES } from '@/lib/auth/permissions';
+import { useLocale } from '@/components/locale-provider';
 
 type ActionState = {
   error?: string;
@@ -28,30 +30,65 @@ type ActionState = {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+// The caller's own role within the current team, looked up from the
+// already-fetched member list — not `user.role`, which is a separate,
+// global (and largely legacy) field unrelated to team membership.
+function useMyTeamRole() {
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const myMembership = teamData?.teamMembers?.find((m) => m.user.id === user?.id);
+  return myMembership?.role;
+}
+
 function SubscriptionSkeleton() {
+  const { t } = useLocale();
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>{t.team.subscription}</CardTitle>
       </CardHeader>
     </Card>
   );
 }
 
+type UsageSummary = {
+  periodStart: string;
+  totalEvents: number;
+  reportedToStripe: number;
+};
+
+function UsageSummaryBlock() {
+  const { data } = useSWR<UsageSummary>('/api/billing/usage', fetcher);
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100 text-sm">
+      <p className="font-medium">Usage this billing period</p>
+      <p className="text-muted-foreground">
+        {data.totalEvents} task{data.totalEvents === 1 ? '' : 's'} created
+        {data.reportedToStripe > 0 && ` · ${data.reportedToStripe} reported to Stripe`}
+      </p>
+    </div>
+  );
+}
+
 function ManageSubscription() {
   const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { t } = useLocale();
 
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>{t.team.subscription}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="mb-4 sm:mb-0">
               <p className="font-medium">
-                Current Plan: {teamData?.planName || 'Free'}
+                {t.team.currentPlan}: {teamData?.planName || 'Free'}
               </p>
               <p className="text-sm text-muted-foreground">
                 {teamData?.subscriptionStatus === 'active'
@@ -63,10 +100,11 @@ function ManageSubscription() {
             </div>
             <form action={customerPortalAction}>
               <Button type="submit" variant="outline">
-                Manage Subscription
+                {t.team.manageSubscription}
               </Button>
             </form>
           </div>
+          <UsageSummaryBlock />
         </div>
       </CardContent>
     </Card>
@@ -74,10 +112,11 @@ function ManageSubscription() {
 }
 
 function TeamMembersSkeleton() {
+  const { t } = useLocale();
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>{t.team.members}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="animate-pulse space-y-4 mt-1">
@@ -96,11 +135,14 @@ function TeamMembersSkeleton() {
 
 function TeamMembers() {
   const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const myRole = useMyTeamRole();
+  const canRemoveMembers = hasPermission(myRole, Permission.REMOVE_MEMBERS);
   const [removeState, removeAction, isRemovePending] = useActionState<
     ActionState,
     FormData
   >(removeTeamMember, {});
   useActionToast(removeState);
+  const { t } = useLocale();
 
   const getUserDisplayName = (user: Pick<User, 'id' | 'name' | 'email'>) => {
     return user.name || user.email || 'Unknown User';
@@ -110,10 +152,10 @@ function TeamMembers() {
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Team Members</CardTitle>
+          <CardTitle>{t.team.members}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">No team members yet.</p>
+          <p className="text-muted-foreground">{t.team.noMembers}</p>
         </CardContent>
       </Card>
     );
@@ -122,11 +164,11 @@ function TeamMembers() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>{t.team.members}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-4">
-          {teamData.teamMembers.map((member, index) => (
+          {teamData.teamMembers.map((member) => (
             <li key={member.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar>
@@ -150,7 +192,7 @@ function TeamMembers() {
                   </p>
                 </div>
               </div>
-              {index > 1 ? (
+              {canRemoveMembers ? (
                 <form action={removeAction}>
                   <input type="hidden" name="memberId" value={member.id} />
                   <Button
@@ -159,7 +201,7 @@ function TeamMembers() {
                     size="sm"
                     disabled={isRemovePending}
                   >
-                    {isRemovePending ? 'Removing...' : 'Remove'}
+                    {isRemovePending ? 'Removing...' : t.team.remove}
                   </Button>
                 </form>
               ) : null}
@@ -175,34 +217,36 @@ function TeamMembers() {
 }
 
 function InviteTeamMemberSkeleton() {
+  const { t } = useLocale();
   return (
     <Card className="h-[260px]">
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>{t.team.invite}</CardTitle>
       </CardHeader>
     </Card>
   );
 }
 
 function InviteTeamMember() {
-  const { data: user } = useSWR<User>('/api/user', fetcher);
-  const isOwner = user?.role === 'owner';
+  const myRole = useMyTeamRole();
+  const canInvite = hasPermission(myRole, Permission.INVITE_MEMBERS);
   const [inviteState, inviteAction, isInvitePending] = useActionState<
     ActionState,
     FormData
   >(inviteTeamMember, {});
   useActionToast(inviteState);
+  const { t } = useLocale();
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>{t.team.invite}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={inviteAction} className="space-y-4">
           <div>
             <Label htmlFor="email" className="mb-2">
-              Email
+              {t.team.inviteEmail}
             </Label>
             <Input
               id="email"
@@ -210,25 +254,25 @@ function InviteTeamMember() {
               type="email"
               placeholder="Enter email"
               required
-              disabled={!isOwner}
+              disabled={!canInvite}
             />
           </div>
           <div>
-            <Label>Role</Label>
+            <Label>{t.team.inviteRole}</Label>
             <RadioGroup
               defaultValue="member"
               name="role"
-              className="flex space-x-4"
-              disabled={!isOwner}
+              className="flex flex-wrap gap-4"
+              disabled={!canInvite}
             >
-              <div className="flex items-center space-x-2 mt-2">
-                <RadioGroupItem value="member" id="member" />
-                <Label htmlFor="member">Member</Label>
-              </div>
-              <div className="flex items-center space-x-2 mt-2">
-                <RadioGroupItem value="owner" id="owner" />
-                <Label htmlFor="owner">Owner</Label>
-              </div>
+              {ALL_TEAM_ROLES.map((role) => (
+                <div key={role} className="flex items-center space-x-2 mt-2">
+                  <RadioGroupItem value={role} id={role} />
+                  <Label htmlFor={role} className="capitalize">
+                    {role}
+                  </Label>
+                </div>
+              ))}
             </RadioGroup>
           </div>
           {inviteState?.error && (
@@ -240,26 +284,26 @@ function InviteTeamMember() {
           <Button
             type="submit"
             className="bg-orange-500 hover:bg-orange-600 text-white"
-            disabled={isInvitePending || !isOwner}
+            disabled={isInvitePending || !canInvite}
           >
             {isInvitePending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Inviting...
+                {t.team.inviting}
               </>
             ) : (
               <>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Invite Member
+                {t.team.inviteButton}
               </>
             )}
           </Button>
         </form>
       </CardContent>
-      {!isOwner && (
+      {!canInvite && (
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            You must be a team owner to invite new members.
+            You do not have permission to invite new members.
           </p>
         </CardFooter>
       )}
@@ -268,9 +312,10 @@ function InviteTeamMember() {
 }
 
 export default function SettingsPage() {
+  const { t } = useLocale();
   return (
     <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium mb-6">Team Settings</h1>
+      <h1 className="text-lg lg:text-2xl font-medium mb-6">{t.team.title}</h1>
       <Suspense fallback={<SubscriptionSkeleton />}>
         <ManageSubscription />
       </Suspense>

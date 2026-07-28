@@ -36,6 +36,20 @@
       "when": 1785229770627,
       "tag": "0004_simple_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785233142173,
+      "tag": "0005_flat_captain_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785234815517,
+      "tag": "0006_thick_cloak",
+      "breakpoints": true
     }
   ]
 }

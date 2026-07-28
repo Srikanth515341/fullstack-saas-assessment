@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getDictionary, parseLocale } from '@/lib/i18n/dictionaries';
 import {
   Settings,
   LogOut,
@@ -19,6 +21,8 @@ import {
   MailCheck,
   LogIn,
   Download,
+  Ban,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
@@ -43,6 +47,9 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.RESET_PASSWORD]: ShieldCheck,
   [ActivityType.VERIFY_EMAIL]: MailCheck,
   [ActivityType.OAUTH_LOGIN]: LogIn,
+  [ActivityType.CREATE_API_KEY]: KeyRound,
+  [ActivityType.REVOKE_API_KEY]: Ban,
+  [ActivityType.INVOICE_PAID]: Receipt,
 };
 
 function getRelativeTime(date: Date) {
@@ -97,6 +104,12 @@ function formatAction(action: ActivityType): string {
       return 'You verified your email';
     case ActivityType.OAUTH_LOGIN:
       return 'You signed in with an OAuth provider';
+    case ActivityType.CREATE_API_KEY:
+      return 'You created an API key';
+    case ActivityType.REVOKE_API_KEY:
+      return 'You revoked an API key';
+    case ActivityType.INVOICE_PAID:
+      return "An invoice was paid for your team's subscription";
     default:
       return 'Unknown action occurred';
   }
@@ -111,20 +124,26 @@ export default async function ActivityPage({
   const requestedPage = Number(params.page) || 1;
   const { logs, page, totalPages } = await getActivityLogs(requestedPage);
 
+  // Safe to read the cookie directly here — this route is already fully
+  // dynamic (per-page dynamic hole under PPR, not a shared layout), so
+  // there's no static shell to lose. See docs/section-c-level3.md.
+  const locale = parseLocale((await cookies()).get('locale')?.value);
+  const t = getDictionary(locale);
+
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Activity Log
+        {t.activity.title}
       </h1>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>{t.activity.recent}</CardTitle>
           <Link
             href="/api/export/activity"
             className="text-xs flex items-center gap-1 text-gray-500 hover:text-gray-900"
           >
             <Download className="h-3.5 w-3.5" />
-            Export CSV
+            {t.activity.exportCsv}
           </Link>
         </CardHeader>
         <CardContent>
@@ -158,12 +177,9 @@ export default async function ActivityPage({
             <div className="flex flex-col items-center justify-center text-center py-12">
               <AlertCircle className="h-12 w-12 text-orange-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No activity yet
+                {t.activity.empty}
               </h3>
-              <p className="text-sm text-gray-500 max-w-sm">
-                When you perform actions like signing in or updating your
-                account, they'll appear here.
-              </p>
+              <p className="text-sm text-gray-500 max-w-sm">{t.activity.emptyHint}</p>
             </div>
           )}
 
