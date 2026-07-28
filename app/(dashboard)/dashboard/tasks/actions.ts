@@ -14,9 +14,13 @@ import {
 import { getUser, getUserWithTeam } from '@/lib/db/queries';
 import { validatedActionWithUser } from '@/lib/auth/middleware';
 import { logActivity } from '@/app/(login)/actions';
+import { publishTaskEvent } from '@/lib/realtime/task-events';
+import { recordUsage } from '@/lib/payments/metered-usage';
 
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
+  description: z.string().max(2000).optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
   dueDate: z.string().optional(),
   categoryId: z.coerce.number().optional()
 });
@@ -24,11 +28,13 @@ const createTaskSchema = z.object({
 export const createTask = validatedActionWithUser(
   createTaskSchema,
   async (data, _, user) => {
-    const { title, dueDate, categoryId } = data;
+    const { title, description, priority, dueDate, categoryId } = data;
 
     const newTask: NewTask = {
       userId: user.id,
       title,
+      description: description || null,
+      priority: priority || null,
       dueDate: dueDate ? new Date(dueDate) : null,
       categoryId: categoryId || null
     };
@@ -38,6 +44,14 @@ export const createTask = validatedActionWithUser(
     const userWithTeam = await getUserWithTeam(user.id);
     await logActivity(userWithTeam?.teamId, user.id, ActivityType.CREATE_TASK);
 
+    // Metered billing (#22) — task creation is this app's one metered
+    // dimension. Local usage tracking always succeeds regardless of
+    // whether Stripe reporting does; see lib/payments/metered-usage.ts.
+    if (userWithTeam?.teamId) {
+      await recordUsage(userWithTeam.teamId);
+    }
+
+    publishTaskEvent(user.id, { type: 'created' });
     revalidatePath('/dashboard/tasks');
     return { success: 'Task added.' };
   }
@@ -100,6 +114,7 @@ export async function toggleTask(formData: FormData) {
   const userWithTeam = await getUserWithTeam(user.id);
   await logActivity(userWithTeam?.teamId, user.id, ActivityType.COMPLETE_TASK);
 
+  publishTaskEvent(user.id, { type: 'updated' });
   revalidatePath('/dashboard/tasks');
 }
 
@@ -126,6 +141,7 @@ export async function deleteTask(formData: FormData) {
   const userWithTeam = await getUserWithTeam(user.id);
   await logActivity(userWithTeam?.teamId, user.id, ActivityType.DELETE_TASK);
 
+  publishTaskEvent(user.id, { type: 'deleted' });
   revalidatePath('/dashboard/tasks');
   revalidatePath('/dashboard/tasks/trash');
 }
@@ -150,6 +166,7 @@ export async function restoreTask(formData: FormData) {
   const userWithTeam = await getUserWithTeam(user.id);
   await logActivity(userWithTeam?.teamId, user.id, ActivityType.RESTORE_TASK);
 
+  publishTaskEvent(user.id, { type: 'restored' });
   revalidatePath('/dashboard/tasks');
   revalidatePath('/dashboard/tasks/trash');
 }

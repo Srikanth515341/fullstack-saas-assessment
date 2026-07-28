@@ -10,6 +10,7 @@ import { CircleIcon, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import { ActionState } from '@/lib/auth/middleware';
 import { useActionToast } from '@/components/use-action-toast';
+import { useLocale } from '@/components/locale-provider';
 
 export function Login({
   mode = 'signin',
@@ -29,6 +30,7 @@ export function Login({
     { error: '' }
   );
   useActionToast(state.error ? { error: state.error } : undefined);
+  const { t } = useLocale();
 
   return (
     <div className="min-h-[100dvh] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
@@ -37,9 +39,7 @@ export function Login({
           <CircleIcon className="h-12 w-12 text-orange-500" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {mode === 'signin'
-            ? 'Sign in to your account'
-            : 'Create your account'}
+          {mode === 'signin' ? t.auth.signInTitle : t.auth.signUpTitle}
         </h2>
       </div>
 
@@ -53,7 +53,7 @@ export function Login({
               htmlFor="email"
               className="block text-sm font-medium text-gray-700"
             >
-              Email
+              {t.auth.email}
             </Label>
             <div className="mt-1">
               <Input
@@ -65,7 +65,7 @@ export function Login({
                 required
                 maxLength={50}
                 className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your email"
+                placeholder={t.auth.email}
               />
             </div>
           </div>
@@ -75,7 +75,7 @@ export function Login({
               htmlFor="password"
               className="block text-sm font-medium text-gray-700"
             >
-              Password
+              {t.auth.password}
             </Label>
             <div className="mt-1">
               <Input
@@ -90,7 +90,7 @@ export function Login({
                 minLength={8}
                 maxLength={100}
                 className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your password"
+                placeholder={t.auth.password}
               />
             </div>
             {mode === 'signin' && (
@@ -99,7 +99,7 @@ export function Login({
                   href="/forgot-password"
                   className="text-sm text-gray-600 hover:text-gray-900"
                 >
-                  Forgot password?
+                  {t.auth.forgotPassword}
                 </Link>
               </div>
             )}
@@ -121,9 +121,9 @@ export function Login({
                   Loading...
                 </>
               ) : mode === 'signin' ? (
-                'Sign in'
+                t.auth.signIn
               ) : (
-                'Sign up'
+                t.auth.signUp
               )}
             </Button>
           </div>
@@ -137,7 +137,7 @@ export function Login({
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-gray-50 text-gray-500">
-                  Or continue with
+                  {t.auth.orContinueWith}
                 </span>
               </div>
             </div>
@@ -169,9 +169,7 @@ export function Login({
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-gray-50 text-gray-500">
-                {mode === 'signin'
-                  ? 'New to our platform?'
-                  : 'Already have an account?'}
+                {mode === 'signin' ? t.auth.newToPlatform : t.auth.alreadyHaveAccount}
               </span>
             </div>
           </div>
@@ -183,9 +181,7 @@ export function Login({
               }${priceId ? `&priceId=${priceId}` : ''}`}
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-full shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             >
-              {mode === 'signin'
-                ? 'Create an account'
-                : 'Sign in to existing account'}
+              {mode === 'signin' ? t.auth.createAccount : t.auth.signInToExisting}
             </Link>
           </div>
         </div>

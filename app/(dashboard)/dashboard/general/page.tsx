@@ -13,6 +13,7 @@ import useSWR from 'swr';
 import { Suspense } from 'react';
 import { useActionToast } from '@/components/use-action-toast';
 import { AvatarUploadForm } from './avatar-upload-form';
+import { useLocale } from '@/components/locale-provider';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -39,23 +40,24 @@ function AccountForm({
   bioValue = '',
   emailValue = ''
 }: AccountFormProps) {
+  const { t } = useLocale();
   return (
     <>
       <div>
         <Label htmlFor="name" className="mb-2">
-          Name
+          {t.general.name}
         </Label>
         <Input
           id="name"
           name="name"
-          placeholder="Enter your name"
+          placeholder={t.general.name}
           defaultValue={state.name || nameValue}
           required
         />
       </div>
       <div>
         <Label htmlFor="displayName" className="mb-2">
-          Display Name
+          {t.general.displayName}
         </Label>
         <Input
           id="displayName"
@@ -66,7 +68,7 @@ function AccountForm({
       </div>
       <div>
         <Label htmlFor="bio" className="mb-2">
-          Bio
+          {t.general.bio}
         </Label>
         <Textarea
           id="bio"
@@ -78,13 +80,13 @@ function AccountForm({
       </div>
       <div>
         <Label htmlFor="email" className="mb-2">
-          Email
+          {t.auth.email}
         </Label>
         <Input
           id="email"
           name="email"
           type="email"
-          placeholder="Enter your email"
+          placeholder={t.auth.email}
           defaultValue={emailValue}
           required
         />
@@ -112,16 +114,17 @@ export default function GeneralPage() {
     {}
   );
   useActionToast(state);
+  const { t } = useLocale();
 
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        General Settings
+        {t.general.title}
       </h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Account Information</CardTitle>
+          <CardTitle>{t.general.accountInfo}</CardTitle>
         </CardHeader>
         <CardContent>
           <Suspense fallback={<div className="h-16 mb-6" />}>
@@ -145,10 +148,10 @@ export default function GeneralPage() {
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t.general.saving}
                 </>
               ) : (
-                'Save Changes'
+                t.general.saveChanges
               )}
             </Button>
           </form>

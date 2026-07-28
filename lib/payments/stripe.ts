@@ -6,6 +6,9 @@ import {
   getUser,
   updateTeamSubscription
 } from '@/lib/db/queries';
+import { getMeteredPriceId } from './metered-usage';
+import { db } from '@/lib/db/drizzle';
+import { activityLogs, ActivityType } from '@/lib/db/schema';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
@@ -24,14 +27,23 @@ export async function createCheckoutSession({
     redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
   }
 
+  // Metered billing (#22) — if a "tasks created" metered price exists on
+  // this Stripe account (see lib/payments/setup-metered-billing.ts), attach
+  // it as a second line item so usage actually gets billed, not just
+  // recorded. Metered price line items must NOT specify a quantity —
+  // Stripe rejects the session if you do, since usage determines it.
+  // Silently skipped if metered billing was never set up on this account.
+  const meteredPriceId = await getMeteredPriceId();
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    { price: priceId, quantity: 1 }
+  ];
+  if (meteredPriceId) {
+    lineItems.push({ price: meteredPriceId });
+  }
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1
-      }
-    ],
+    line_items: lineItems,
     mode: 'subscription',
     success_url: `${process.env.BASE_URL}/api/stripe/checkout?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.BASE_URL}/pricing`,
@@ -144,6 +156,30 @@ export async function handleSubscriptionChange(
       subscriptionStatus: status
     });
   }
+}
+
+// Metered billing (#22) — an invoice is where Stripe actually converts
+// reported meter events into a dollar amount. Logging it to the existing
+// activity log (rather than a separate table) means it shows up in
+// /dashboard/activity for free, using the same event system as everything
+// else in the app.
+export async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  const customerId = invoice.customer as string;
+  const team = await getTeamByStripeCustomerId(customerId);
+
+  if (!team) {
+    console.error('Team not found for Stripe customer:', customerId);
+    return;
+  }
+
+  const amount = (invoice.amount_paid / 100).toFixed(2);
+  await db.insert(activityLogs).values({
+    teamId: team.id,
+    userId: null,
+    action: ActivityType.INVOICE_PAID,
+    ipAddress: ''
+  });
+  console.log(`Invoice paid for team ${team.id}: $${amount}`);
 }
 
 export async function getStripePrices() {

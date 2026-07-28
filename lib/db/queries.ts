@@ -7,7 +7,8 @@ import {
   users,
   tasks,
   taskCategories,
-  notifications
+  notifications,
+  apiKeys
 } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
@@ -76,7 +77,8 @@ export async function getUserWithTeam(userId: number) {
   const result = await db
     .select({
       user: users,
-      teamId: teamMembers.teamId
+      teamId: teamMembers.teamId,
+      teamRole: teamMembers.role
     })
     .from(users)
     .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
@@ -232,6 +234,42 @@ export async function getUnreadNotificationCount() {
     .where(and(eq(notifications.userId, user.id), eq(notifications.read, false)));
 
   return total;
+}
+
+// Admin-only — deliberately not user-scoped. Guarded at the page level via
+// requireAdmin(), not here, so the query itself stays a simple "give me
+// everything" read.
+export async function getAllUsersForAdmin() {
+  return db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      isPlatformAdmin: users.isPlatformAdmin,
+      emailVerifiedAt: users.emailVerifiedAt,
+      createdAt: users.createdAt,
+      deletedAt: users.deletedAt
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
+}
+
+export async function getAllTeamsForAdmin() {
+  return db.select().from(teams).orderBy(desc(teams.createdAt));
+}
+
+export async function getApiKeysForUser() {
+  const user = await getUser();
+  if (!user) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(apiKeys)
+    .where(eq(apiKeys.userId, user.id))
+    .orderBy(desc(apiKeys.createdAt));
 }
 
 export async function getTeamForUser() {

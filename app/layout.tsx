@@ -4,6 +4,7 @@ import { Manrope } from 'next/font/google';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import { ToastProvider } from '@/components/toast-provider';
+import { LocaleProvider } from '@/components/locale-provider';
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
@@ -47,7 +48,9 @@ export default function RootLayout({
             }
           }}
         >
-          <ToastProvider>{children}</ToastProvider>
+          <LocaleProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </LocaleProvider>
         </SWRConfig>
       </body>
     </html>

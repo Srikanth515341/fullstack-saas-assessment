@@ -8,6 +8,7 @@ import { Lock, Trash2, Loader2 } from 'lucide-react';
 import { useActionState, useState } from 'react';
 import { updatePassword, deleteAccount } from '@/app/(login)/actions';
 import { useActionToast } from '@/components/use-action-toast';
+import { useLocale } from '@/components/locale-provider';
 
 type PasswordState = {
   currentPassword?: string;
@@ -36,6 +37,7 @@ export default function SecurityPage() {
 
   useActionToast(passwordState);
   useActionToast(deleteState);
+  const { t } = useLocale();
 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const isDeleteConfirmed = deleteConfirmText === 'DELETE';
@@ -43,17 +45,17 @@ export default function SecurityPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium bold text-gray-900 mb-6">
-        Security Settings
+        {t.security.title}
       </h1>
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle>{t.security.password}</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" action={passwordAction}>
             <div>
               <Label htmlFor="current-password" className="mb-2">
-                Current Password
+                {t.security.currentPassword}
               </Label>
               <Input
                 id="current-password"
@@ -68,7 +70,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <Label htmlFor="new-password" className="mb-2">
-                New Password
+                {t.security.newPassword}
               </Label>
               <Input
                 id="new-password"
@@ -83,7 +85,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <Label htmlFor="confirm-password" className="mb-2">
-                Confirm New Password
+                {t.security.confirmNewPassword}
               </Label>
               <Input
                 id="confirm-password"
@@ -109,12 +111,12 @@ export default function SecurityPage() {
               {isPasswordPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
+                  {t.security.updating}
                 </>
               ) : (
                 <>
                   <Lock className="mr-2 h-4 w-4" />
-                  Update Password
+                  {t.security.updatePassword}
                 </>
               )}
             </Button>
@@ -124,16 +126,14 @@ export default function SecurityPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Delete Account</CardTitle>
+          <CardTitle>{t.security.deleteAccount}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 mb-4">
-            Account deletion is non-reversable. Please proceed with caution.
-          </p>
+          <p className="text-sm text-gray-500 mb-4">{t.security.deleteWarning}</p>
           <form action={deleteAction} className="space-y-4">
             <div>
               <Label htmlFor="delete-password" className="mb-2">
-                Confirm Password
+                {t.security.confirmPassword}
               </Label>
               <Input
                 id="delete-password"
@@ -147,7 +147,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <Label htmlFor="delete-confirm-text" className="mb-2">
-                Type <span className="font-mono font-semibold">DELETE</span> to confirm
+                {t.security.typeToConfirm}
               </Label>
               <Input
                 id="delete-confirm-text"
@@ -170,12 +170,12 @@ export default function SecurityPage() {
               {isDeletePending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t.security.deleting}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Account
+                  {t.security.deleteAccount}
                 </>
               )}
             </Button>

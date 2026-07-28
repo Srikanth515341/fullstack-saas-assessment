@@ -25,6 +25,7 @@ import { createCheckoutSession } from '@/lib/payments/stripe';
 import { storeAvatarFile } from '@/lib/storage/avatar';
 import { revalidatePath } from 'next/cache';
 import { getUser, getUserWithTeam, createNotification } from '@/lib/db/queries';
+import { hasPermission, Permission, ALL_TEAM_ROLES } from '@/lib/auth/permissions';
 import {
   validatedAction,
   validatedActionWithUser
@@ -426,6 +427,13 @@ export const removeTeamMember = validatedActionWithUser(
       return { error: 'User is not part of a team' };
     }
 
+    // This is the actual security boundary — the invite/remove forms only
+    // *hide* their buttons client-side based on role; the Server Action is
+    // what has to refuse the request even if someone calls it directly.
+    if (!hasPermission(userWithTeam.teamRole, Permission.REMOVE_MEMBERS)) {
+      return { error: 'You do not have permission to remove team members' };
+    }
+
     const [removedMember] = await db
       .select()
       .from(teamMembers)
@@ -465,7 +473,7 @@ export const removeTeamMember = validatedActionWithUser(
 
 const inviteTeamMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
-  role: z.enum(['member', 'owner'])
+  role: z.enum(ALL_TEAM_ROLES)
 });
 
 export const inviteTeamMember = validatedActionWithUser(
@@ -476,6 +484,10 @@ export const inviteTeamMember = validatedActionWithUser(
 
     if (!userWithTeam?.teamId) {
       return { error: 'User is not part of a team' };
+    }
+
+    if (!hasPermission(userWithTeam.teamRole, Permission.INVITE_MEMBERS)) {
+      return { error: 'You do not have permission to invite team members' };
     }
 
     const existingMember = await db

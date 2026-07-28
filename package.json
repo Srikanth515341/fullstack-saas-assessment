@@ -8,7 +8,11 @@
     "db:seed": "npx tsx lib/db/seed.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "stripe:setup-metered": "npx tsx lib/payments/setup-metered-billing.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.1.7",
@@ -38,5 +42,9 @@
     "tw-animate-css": "^1.3.0",
     "typescript": "^5.8.3",
     "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "vitest": "^4.1.10"
   }
 }

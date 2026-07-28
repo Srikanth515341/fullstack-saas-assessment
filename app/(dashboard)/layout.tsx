@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { NotificationBell } from './notification-bell';
 import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
@@ -89,6 +90,7 @@ function Header() {
           <span className="ml-2 text-xl font-semibold text-gray-900">ACME</span>
         </Link>
         <div className="flex items-center space-x-4">
+          <LanguageSwitcher />
           <ThemeToggle />
           <Suspense fallback={<div className="h-9 w-9" />}>
             <NotificationBell />

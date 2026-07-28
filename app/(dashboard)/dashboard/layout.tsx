@@ -4,8 +4,10 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Users, Settings, Shield, Activity, Menu, StickyNote, ListTodo } from 'lucide-react';
+import { Users, Settings, Shield, Activity, Menu, StickyNote, ListTodo, KeyRound } from 'lucide-react';
 import { VerifyEmailBanner } from './verify-email-banner';
+import { AdminNavLink } from './admin-nav-link';
+import { useLocale } from '@/components/locale-provider';
 
 export default function DashboardLayout({
   children
@@ -14,14 +16,16 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { t } = useLocale();
 
   const navItems = [
-    { href: '/dashboard', icon: Users, label: 'Team' },
-    { href: '/dashboard/general', icon: Settings, label: 'General' },
-    { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
-    { href: '/dashboard/security', icon: Shield, label: 'Security' },
-    { href: '/dashboard/notes', icon: StickyNote, label: 'Notes' },
-    { href: '/dashboard/tasks', icon: ListTodo, label: 'Tasks' }
+    { href: '/dashboard', icon: Users, label: t.nav.team },
+    { href: '/dashboard/general', icon: Settings, label: t.nav.general },
+    { href: '/dashboard/activity', icon: Activity, label: t.nav.activity },
+    { href: '/dashboard/security', icon: Shield, label: t.nav.security },
+    { href: '/dashboard/notes', icon: StickyNote, label: t.nav.notes },
+    { href: '/dashboard/tasks', icon: ListTodo, label: t.nav.tasks },
+    { href: '/dashboard/api-keys', icon: KeyRound, label: t.nav.apiKeys }
   ];
 
   return (
@@ -68,6 +72,12 @@ export default function DashboardLayout({
                 </Button>
               </Link>
             ))}
+            <Suspense fallback={null}>
+              <AdminNavLink
+                pathname={pathname}
+                onNavigate={() => setIsSidebarOpen(false)}
+              />
+            </Suspense>
           </nav>
         </aside>
 
